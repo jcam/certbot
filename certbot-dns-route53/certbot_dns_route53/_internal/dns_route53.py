@@ -2,6 +2,7 @@
 import collections
 import logging
 import time
+import os
 from typing import Any
 from typing import DefaultDict
 from typing import Dict
@@ -104,8 +105,6 @@ class Authenticator(dns_common.DNSAuthenticator):
         return zones[0][1]
 
     def _change_txt_record(self, action: str, validation_domain_name: str, validation: str) -> str:
-        zone_id = self._find_zone_id_for_domain(validation_domain_name)
-
         rrecords = self._resource_records[validation_domain_name]
         challenge = {"Value": '"{0}"'.format(validation)}
         if action == "DELETE":
@@ -119,6 +118,14 @@ class Authenticator(dns_common.DNSAuthenticator):
                 rrecords = [challenge]
         else:
             rrecords.append(challenge)
+
+        override_zone = os.environ.get('ROUTE53_VALIDATION_ZONE')
+        if override_zone is not None:
+            zone_id = self._find_zone_id_for_domain(override_zone)
+            validation_domain_name = validation_domain_name + '.' + override_zone
+        else:
+            zone_id = self._find_zone_id_for_domain(validation_domain_name)
+
 
         response = self.r53.change_resource_record_sets(
             HostedZoneId=zone_id,
